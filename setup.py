@@ -9,7 +9,7 @@ setup(
     version="0.1.2",
     description="Authenticate with GCP IAP",
     long_description=open(os.path.join(os.path.dirname(__file__), "README.md")).read(),
-    log_description_type='text/markdown',
+    log_description_content_type='text/markdown',
     author="Anders Pearson",
     author_email="anders@appsembler.com",
     url="https://github.com/appsembler/django-iapauth",
