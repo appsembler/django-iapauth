@@ -34,5 +34,5 @@ setup(
         "Topic :: Utilities",
     ],
     python_requires=">=3.5",
-    install_requires=["Django>=3.0", "jose", "requests"],
+    install_requires=["Django>=3.0", "python-jose[cryptography]", "requests"],
 )
