@@ -27,7 +27,7 @@ def keys():
 
 
 # Returns the JWT "audience" that should be in the assertion
-def jwt_audience():
+def gcp_jwt_audience():
     global AUDIENCE
 
     if AUDIENCE is None:
@@ -45,7 +45,31 @@ def jwt_audience():
     return AUDIENCE
 
 
-# let's actually verify the JWT
+class JWTAuthenticator(object):
+    def authenticate(self, jwt_token, audience):
+        try:
+            info = jwt.decode(
+                jwt_token,
+                keys(),
+                algorithms=["ES256"],
+                audience=audience,
+            )
+            return (True, info["email"], info["hd"])
+        except jose.exceptions.JOSEError as e:
+            # log it
+            print("bad JWT: {}".format(e))
+        return (False, None, None)
+
+
+class StubAuthenticator(object):
+    """ stub for testing """
+    def __init__(self, status=True, email="foo@example.com", domain="example.com"):
+        self.response = (status, email, domain)
+
+    def authenticate(self, jwt_token, audience):
+        return self.response
+
+
 class IAPJWTAuthMiddleware(MiddlewareMixin):
     def process_request(self, request):
         # AuthenticationMiddleware is required so that request.user exists.
@@ -66,24 +90,22 @@ class IAPJWTAuthMiddleware(MiddlewareMixin):
         if not jwt_token:
             # no token. We have no responsibility here
             return
-        try:
-            if hasattr(settings, "JWT_AUDIENCE"):
-                audience = settings.JWT_AUDIENCE
-            else:
-                audience = jwt_audience()
-            info = jwt.decode(
-                jwt_token,
-                keys(),
-                algorithms=["ES256"],
-                audience=audience,
-            )
-            request.jwt_user_email = info["email"]
-            request.jwt_domain = info["hd"]
+        if hasattr(settings, "JWT_AUDIENCE"):
+            audience = settings.JWT_AUDIENCE
+        else:
+            audience = gcp_jwt_audience()
+
+        # we can override the authenticator for testing
+        authenticator = JWTAuthenticator()
+        if hasattr(settings, "IAPAUTH_JWT_AUTHENTICATOR"):
+            authenticator = settings.IAPAUTH_JWT_AUTHENTICATOR
+
+        authenticated, email, domain = authenticator.authenticate(jwt_token, audience)
+        if authenticated:
+            request.jwt_user_email = email
+            request.jwt_domain = domain
             request.jwt_authenticated = True
-            print("jwt authenticated")
-        except jose.exceptions.JOSEError as e:
-            # log it
-            print("bad JWT: {}".format(e))
+        else:
             # they tried to use a bad JWT. Make sure they
             # are logged out.
             self._ensure_logged_out(request)
@@ -94,12 +116,9 @@ class IAPJWTAuthMiddleware(MiddlewareMixin):
         # getting passed in the headers, then the correct user is already
         # persisted in the session and we don't need to continue.
         if request.user.is_authenticated:
-            print("user is already authenticated")
             if request.user.get_username() == username:
-                print("usernames match")
                 return
             else:
-                print("usernames don't match")
                 # An authenticated user is associated with the request, but
                 # it does not match the authorized user in the header.
                 self._remove_invalid_user(request)

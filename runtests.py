@@ -26,6 +26,8 @@ SETTINGS_DICT = {
         "tests",
     ),
     # Test cases will override this liberally.
+    "ROOT_URLCONF": "tests.urls",
+    "SECRET_KEY": "dummy secret",
     "DATABASES": {
         "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}
     },
@@ -36,6 +38,9 @@ SETTINGS_DICT = {
         "django.contrib.auth.middleware.AuthenticationMiddleware",
         "iapauth.middleware.IAPJWTAuthMiddleware",
     ),
+    "AUTHENTICATION_BACKENDS": [
+        "iapauth.backends.IAPJWTUserBackend",
+    ],
     "SITE_ID": 1,
     "TEMPLATES": [
         {

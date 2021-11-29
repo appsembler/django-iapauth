@@ -8,7 +8,6 @@ class IAPJWTUserBackend(RemoteUserBackend):
         """
         Configure a user after creation and return the updated user.
         """
-        print("configure user")
         user.email = request.jwt_user_email
         user.set_unusable_password()
         domain = request.jwt_domain
