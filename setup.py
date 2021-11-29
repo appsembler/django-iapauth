@@ -6,7 +6,7 @@ from setuptools import find_packages, setup
 setup(
     name="django-iapauth",
     zip_safe=False,  # eggs are the devil.
-    version="0.1.3",
+    version="0.1.4",
     description="Authenticate with GCP IAP",
     long_description=open(os.path.join(os.path.dirname(__file__), "README.md")).read(),
     long_description_content_type="text/markdown",

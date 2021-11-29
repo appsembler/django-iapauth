@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 ### Removed
 
+## [v0.1.4] - 2021-11-29
+### Changed
+- black fix
+
 ## [v0.1.3] - 2021-11-29
 ### Changed
 - set long description type for PyPI *correctly* this time
@@ -26,7 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - initial version.
 
-[Unreleased]: https://github.com/appsembler/django-iapauth/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/appsembler/django-iapauth/compare/v0.1.4...HEAD
+[v0.1.4]: https://github.com/appsembler/django-iapauth/releases/tag/v0.1.3..v0.1.4
 [v0.1.3]: https://github.com/appsembler/django-iapauth/releases/tag/v0.1.2..v0.1.3
 [v0.1.2]: https://github.com/appsembler/django-iapauth/releases/tag/v0.1.1..v0.1.2
 [v0.1.1]: https://github.com/appsembler/django-iapauth/releases/tag/v0.1.0..v0.1.1
