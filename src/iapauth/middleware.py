@@ -11,11 +11,18 @@ from django.utils.deprecation import MiddlewareMixin
 from jose import jwt
 
 
+try:
+    import beeline
+except ImportError:
+    import iapauth.instrumentation as beeline
+
+
 KEYS = None  # Cached public keys for verification
 AUDIENCE = None  # Cached value requiring information from metadata server
 
 
 # Google publishes the public keys needed to verify a JWT. Save them in KEYS.
+@beeline.traced(name="iapauth.middleware.keys")
 def keys():
     global KEYS
 
@@ -27,6 +34,7 @@ def keys():
 
 
 # Returns the JWT "audience" that should be in the assertion
+@beeline.traced(name="iapauth.middleware.gcp_jwt_audience")
 def gcp_jwt_audience():
     global AUDIENCE
 
@@ -46,6 +54,7 @@ def gcp_jwt_audience():
 
 
 class JWTAuthenticator(object):
+    @beeline.traced(name="iapauth.middleware.JWTAuthenticator.authenticate")
     def authenticate(self, jwt_token, audience):
         try:
             info = jwt.decode(
@@ -62,7 +71,8 @@ class JWTAuthenticator(object):
 
 
 class StubAuthenticator(object):
-    """ stub for testing """
+    """stub for testing"""
+
     def __init__(self, status=True, email="foo@example.com", domain="example.com"):
         self.response = (status, email, domain)
 
@@ -71,9 +81,11 @@ class StubAuthenticator(object):
 
 
 class IAPJWTAuthMiddleware(MiddlewareMixin):
+    @beeline.traced(name="iapauth.middleware.IAPJWTAuthMiddleware.process_request")
     def process_request(self, request):
         # AuthenticationMiddleware is required so that request.user exists.
         if not hasattr(request, "user"):
+            beeline.add_context_field("iapauth.invalid_configuration", True)
             raise ImproperlyConfigured(
                 "The Django remote user auth middleware requires the"
                 " authentication middleware to be installed.  Edit your"
@@ -89,11 +101,13 @@ class IAPJWTAuthMiddleware(MiddlewareMixin):
 
         if not jwt_token:
             # no token. We have no responsibility here
+            beeline.add_context_field("iapauth.no_token", True)
             return
         if hasattr(settings, "JWT_AUDIENCE"):
             audience = settings.JWT_AUDIENCE
         else:
             audience = gcp_jwt_audience()
+        beeline.add_context_field("iapauth.jwt_audience", audience)
 
         # we can override the authenticator for testing
         authenticator = JWTAuthenticator()
@@ -101,6 +115,9 @@ class IAPJWTAuthMiddleware(MiddlewareMixin):
             authenticator = settings.IAPAUTH_JWT_AUTHENTICATOR
 
         authenticated, email, domain = authenticator.authenticate(jwt_token, audience)
+        beeline.add_context_field("iapauth.authenticated", authenticated)
+        beeline.add_context_field("iapauth.email", email)
+        beeline.add_context_field("iapauth.domain", domain)
         if authenticated:
             request.jwt_user_email = email
             request.jwt_domain = domain
@@ -115,7 +132,9 @@ class IAPJWTAuthMiddleware(MiddlewareMixin):
         # If the user is already authenticated and that user is the user we are
         # getting passed in the headers, then the correct user is already
         # persisted in the session and we don't need to continue.
+        beeline.add_context_field("iapauth.username", username)
         if request.user.is_authenticated:
+            beeline.add_context_field("iapauth.already_authenticated", True)
             if request.user.get_username() == username:
                 return
             else:
@@ -123,6 +142,7 @@ class IAPJWTAuthMiddleware(MiddlewareMixin):
                 # it does not match the authorized user in the header.
                 self._remove_invalid_user(request)
 
+        beeline.add_context_field("iapauth.already_authenticated", False)
         # We are seeing this user for the first time in this session, attempt
         # to authenticate the user.
         user = auth.authenticate(request, remote_user=username)
@@ -132,6 +152,7 @@ class IAPJWTAuthMiddleware(MiddlewareMixin):
             request.user = user
             auth.login(request, user)
 
+    @beeline.traced(name="iapauth.middleware.IAPJWTAuthMiddleware._ensure_logged_out")
     def _ensure_logged_out(self, request):
         request.jwt_authenticated = False
         request.jwt_domain = None
@@ -139,9 +160,11 @@ class IAPJWTAuthMiddleware(MiddlewareMixin):
         if request.user.is_authenticated:
             self._remove_invalid_user(request)
 
+    @beeline.traced(name="iapauth.middleware.IAPJWTAuthMiddleware.clean_username")
     def clean_username(self, username, request):
         return username.split("@")[0]
 
+    @beeline.traced(name="iapauth.middleware.IAPJWTAuthMiddleware._remove_invalid_user")
     def _remove_invalid_user(self, request):
         """
         Remove the current authenticated user in the request which is invalid
