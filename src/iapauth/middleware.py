@@ -63,7 +63,7 @@ class JWTAuthenticator(object):
                 algorithms=["ES256"],
                 audience=audience,
             )
-            return (True, info["email"], info["hd"])
+            return (True, info["email"], info.get("hd"))
         except jose.exceptions.JOSEError as e:
             # log it
             print("bad JWT: {}".format(e))

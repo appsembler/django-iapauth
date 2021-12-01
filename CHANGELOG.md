@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - added honeycomb instrumentation
 ### Changed
+- fixed 500 error with missing `hd` field on JWT when accesssed via
+  API Gateway.
 ### Removed
 
 ## [v0.1.4] - 2021-11-29
