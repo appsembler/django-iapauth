@@ -63,7 +63,7 @@ class JWTAuthenticator(object):
                 algorithms=["ES256"],
                 audience=audience,
             )
-            return (True, info["email"], info["hd"])
+            return (True, info["email"], info.get("hd"))
         except jose.exceptions.JOSEError as e:
             # log it
             print("bad JWT: {}".format(e))
@@ -96,11 +96,11 @@ class IAPJWTAuthMiddleware(MiddlewareMixin):
         request.jwt_user_email = None
         request.jwt_domain = None
         request.jwt_authenticated = False
-        goog_user = request.META.get("HTTP_X_GOOG_AUTHENTICATED_USER_EMAIL", "")
-        if goog_user == "accounts.google.com:apigateway-3621-testing@appsembler-testing.iam.gserviceaccount.com":
-            # ignore requests that come through the API Gateway
-            print("ignoring API Gateway")
-            return
+        # goog_user = request.META.get("HTTP_X_GOOG_AUTHENTICATED_USER_EMAIL", "")
+        # if goog_user == "accounts.google.com:apigateway-3621-testing@appsembler-testing.iam.gserviceaccount.com":
+        #     # ignore requests that come through the API Gateway
+        #     print("ignoring API Gateway")
+        #     return
 
         jwt_token = request.META.get("HTTP_X_GOOG_IAP_JWT_ASSERTION", None)
 
