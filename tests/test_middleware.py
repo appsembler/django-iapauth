@@ -143,3 +143,21 @@ class MiddlewareTest(TestCase):
             # should be logged out of the first one and logged in as the second
             self.assertTrue("current user: second" in str(r.content))
             self.assertTrue("is_authenticated: True" in str(r.content))
+
+    @override_settings(
+        JWT_AUDIENCE="/projects/foo",
+        IAPAUTH_JWT_AUTHENTICATOR=StubAuthenticator(True, "testuser@example.com", None),
+    )
+    def test_missing_hd(self):
+        """sometimes the JWT is missing the `hd` field that we use
+        for superuser mapping. We still want to allow the user in
+        but definitely shouldn't grant them elevated priveleges"""
+        # we have a stubbed out authenticator that will pass
+        headers = {"HTTP_X_GOOG_IAP_JWT_ASSERTION": "totally not a legit JWT"}
+        r = self.client.get(reverse("testview"), **headers)
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue("current user: testuser" in str(r.content))
+        self.assertTrue("is_authenticated: True" in str(r.content))
+        # should not be staff or superuser
+        self.assertTrue("is_staff: False" in str(r.content))
+        self.assertTrue("is_superuser: False" in str(r.content))
