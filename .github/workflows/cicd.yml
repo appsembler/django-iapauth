@@ -14,6 +14,7 @@ jobs:
           - black
           - flake8
           - isort
+          - mypy
     steps:
       - uses: actions/checkout@v1
       - name: Set up Python ${{ matrix.python-version }}

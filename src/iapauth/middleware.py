@@ -1,29 +1,41 @@
 import os
+from typing import Tuple, Union
 
-import jose
+import jose  # type: ignore
 import requests
 from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth import load_backend
 from django.contrib.auth.backends import RemoteUserBackend
 from django.core.exceptions import ImproperlyConfigured
+from django.http import HttpRequest
 from django.utils.deprecation import MiddlewareMixin
-from jose import jwt
+from jose import jwt  # type: ignore
 
 
 try:
-    import beeline
+    import beeline  # type: ignore
 except ImportError:
-    import iapauth.instrumentation as beeline
+    import iapauth.instrumentation as beeline  # type: ignore
 
 
-KEYS = None  # Cached public keys for verification
-AUDIENCE = None  # Cached value requiring information from metadata server
+class JWTRequest(HttpRequest):
+    """extend the HttpRequest class for type checking"""
+
+    jwt_user_email: Union[str, None]
+    jwt_domain: Union[str, None]
+    jwt_authenticated: bool
+
+
+KEYS: Union[dict, None] = None  # Cached public keys for verification
+AUDIENCE: Union[
+    str, None
+] = None  # Cached value requiring information from metadata server
 
 
 # Google publishes the public keys needed to verify a JWT. Save them in KEYS.
 @beeline.traced(name="iapauth.middleware.keys")
-def keys():
+def keys() -> Union[dict, None]:
     global KEYS
 
     if KEYS is None:
@@ -35,7 +47,7 @@ def keys():
 
 # Returns the JWT "audience" that should be in the assertion
 @beeline.traced(name="iapauth.middleware.gcp_jwt_audience")
-def gcp_jwt_audience():
+def gcp_jwt_audience() -> Union[str, None]:
     global AUDIENCE
 
     if AUDIENCE is None:
@@ -55,7 +67,9 @@ def gcp_jwt_audience():
 
 class JWTAuthenticator(object):
     @beeline.traced(name="iapauth.middleware.JWTAuthenticator.authenticate")
-    def authenticate(self, jwt_token, audience):
+    def authenticate(
+        self, jwt_token, audience: str
+    ) -> Tuple[bool, Union[str, None], Union[str, None]]:
         try:
             info = jwt.decode(
                 jwt_token,
@@ -73,16 +87,23 @@ class JWTAuthenticator(object):
 class StubAuthenticator(object):
     """stub for testing"""
 
-    def __init__(self, status=True, email="foo@example.com", domain="example.com"):
+    def __init__(
+        self,
+        status: bool = True,
+        email: Union[str, None] = "foo@example.com",
+        domain: Union[str, None] = "example.com",
+    ):
         self.response = (status, email, domain)
 
-    def authenticate(self, jwt_token, audience):
+    def authenticate(
+        self, jwt_token, audience: str
+    ) -> Tuple[bool, Union[str, None], Union[str, None]]:
         return self.response
 
 
 class IAPJWTAuthMiddleware(MiddlewareMixin):
     @beeline.traced(name="iapauth.middleware.IAPJWTAuthMiddleware.process_request")
-    def process_request(self, request):
+    def process_request(self, request: JWTRequest):
         # AuthenticationMiddleware is required so that request.user exists.
         if not hasattr(request, "user"):
             beeline.add_context_field("iapauth.invalid_configuration", True)
@@ -153,7 +174,7 @@ class IAPJWTAuthMiddleware(MiddlewareMixin):
             auth.login(request, user)
 
     @beeline.traced(name="iapauth.middleware.IAPJWTAuthMiddleware._ensure_logged_out")
-    def _ensure_logged_out(self, request):
+    def _ensure_logged_out(self, request: JWTRequest):
         request.jwt_authenticated = False
         request.jwt_domain = None
         request.jwt_user_email = None
@@ -161,11 +182,11 @@ class IAPJWTAuthMiddleware(MiddlewareMixin):
             self._remove_invalid_user(request)
 
     @beeline.traced(name="iapauth.middleware.IAPJWTAuthMiddleware.clean_username")
-    def clean_username(self, username, request):
+    def clean_username(self, username: str, request: JWTRequest) -> str:
         return username.split("@")[0]
 
     @beeline.traced(name="iapauth.middleware.IAPJWTAuthMiddleware._remove_invalid_user")
-    def _remove_invalid_user(self, request):
+    def _remove_invalid_user(self, request: JWTRequest):
         """
         Remove the current authenticated user in the request which is invalid
         but only if the user is authenticated via the RemoteUserBackend.
