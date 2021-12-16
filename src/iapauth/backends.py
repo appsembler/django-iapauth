@@ -1,17 +1,20 @@
 from django.conf import settings
 from django.contrib.auth.backends import RemoteUserBackend
+from django.contrib.auth.models import User
+
+from .middleware import JWTRequest
 
 
 try:
-    import beeline
+    import beeline  # type: ignore
 except ImportError:
-    import iapauth.instrumentation as beeline
+    import iapauth.instrumentation as beeline  # type: ignore
 
 
 # this expects to be used with IAPJWTAuthMiddleware
 class IAPJWTUserBackend(RemoteUserBackend):
     @beeline.traced(name="iapauth.backend.IAPJWTUserBackend.configure_user")
-    def configure_user(self, request, user):
+    def configure_user(self, request: JWTRequest, user: User):
         """
         Configure a user after creation and return the updated user.
         """
